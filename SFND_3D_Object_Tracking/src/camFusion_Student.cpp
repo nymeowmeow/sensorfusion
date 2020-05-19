@@ -162,14 +162,22 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint
     }
     //sort the distance based on the first element in pair
     sort(distances.begin(), distances.end());
-    //retain points that are within 90% in terms of distance
-    int endIdx = int(distances.size()*0.9);
-    for (int i = 0; i != endIdx; ++i)
+    //calculate the distance between the 60% to 50% entry, and
+    //use this to estimate the threshold to filter out points that
+    //is too far off
+    double dist_50 = distances[(int)(0.5*distances.size())].first;
+    double dist_60 = distances[(int)(0.6*distances.size())].first;
+    double threshold = dist_60 + (dist_60 - dist_50)*4;
+    for (int i = 0; i < distances.size(); ++i)
     {
-	int matchIndex = distances[i].second;
-	int keypointIdx = kptMatches[matchIndex].trainIdx;
+        //skip points that are too far
+        if (distances[i].first > threshold)
+           break; //distance in sorted order
+
+        int matchIndex = distances[i].second;
+        int keypointIdx = kptMatches[matchIndex].trainIdx;
         boundingBox.keypoints.push_back(kptsCurr[keypointIdx]);
-	boundingBox.kptMatches.push_back(kptMatches[matchIndex]);
+        boundingBox.kptMatches.push_back(kptMatches[matchIndex]);
     }
 }
 
@@ -215,7 +223,6 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPo
         return;
     }
 
-    // STUDENT TASK (replacement for meanDistRatio)
     std::sort(distRatios.begin(), distRatios.end());
     long medIndex = floor(distRatios.size() / 2.0);
     double medDistRatio = distRatios.size() % 2 == 0 ? (distRatios[medIndex - 1] + distRatios[medIndex]) / 2.0 : distRatios[medIndex]; // compute median dist. ratio to remove outlier influence
@@ -251,47 +258,33 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
    TTC = curr_pos * dt/fabs(prev_pos - curr_pos);   
 }
 
-void getBoxIds(int index, const DataFrame& frame, std::vector<int>& box_ids)
-{
-    const cv::KeyPoint& keypoint = frame.keypoints[index];
-    for (int i = 0; i < frame.boundingBoxes.size(); ++i)
-    {
-        if (frame.boundingBoxes[i].roi.contains(keypoint.pt))
-        {
-            box_ids.push_back(frame.boundingBoxes[i].boxID);
-        }
-    }
-}
-
 void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bbBestMatches, DataFrame &prevFrame, DataFrame &currFrame)
 {
-    std::vector<int> curr_box_ids;
-    std::vector<int> prev_box_ids;
+    std::map<int, map<int, int>> counts;
     for (const auto& match : matches)
     {
-        //find bounding box for current frame
-        getBoxIds(match.trainIdx, currFrame, curr_box_ids);
-        //find bounding box for previous frame
-        getBoxIds(match.queryIdx, prevFrame, prev_box_ids);
-    }
-    //find the count for the previous/current bounding box matching combination
-    std::map<int, map<int, int>> counts;
-    for (auto prev_box_id : prev_box_ids)
-    {
-        for (auto curr_box_id : curr_box_ids)
+        const auto& curr_pt = currFrame.keypoints[match.trainIdx].pt;
+        const auto& prev_pt = prevFrame.keypoints[match.queryIdx].pt;
+        for (const BoundingBox& prev_bounding_box : prevFrame.boundingBoxes)
         {
-            std::map<int, int>& currmap = counts[prev_box_id];
-            std::map<int, int>::iterator i = currmap.find(curr_box_id);
-            currmap[curr_box_id] += 1;
+            for (const BoundingBox& curr_bounding_box : currFrame.boundingBoxes)
+            {
+                if (prev_bounding_box.roi.contains(prev_pt) &&
+                    curr_bounding_box.roi.contains(curr_pt))
+                {
+                    std::map<int, int>& currmap = counts[prev_bounding_box.boxID];
+                    currmap[curr_bounding_box.boxID] += 1;
+                }
+            }
         }
     }
     //find the best match bounding box
-    for (int i = 0; i < prevFrame.boundingBoxes.size(); ++i)
+    for (auto entry : counts)
     {
-        //find the matching bounding box in current frame that has the highest count
-        auto prev_box_id = prevFrame.boundingBoxes[i].boxID;
-        const std::map<int, int>& currmap = counts[prev_box_id];
-        auto max = std::max_element(currmap.begin(), currmap.end(), currmap.value_comp());
+        int prev_box_id = entry.first;
+        const std::map<int, int>& currmap = entry.second;
+        auto max = std::max_element(currmap.begin(), currmap.end(), 
+                      [](const pair<int, int>& a, const pair<int, int>& b)->bool { return a.second < b.second; });
         bbBestMatches[prev_box_id] = max->first;
     }
 }
