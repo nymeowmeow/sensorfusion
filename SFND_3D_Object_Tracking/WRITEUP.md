@@ -224,11 +224,11 @@ comparing image 10 and 11, the xmin drops from 7.39 to 7.20. but the TTC from li
 
 image 10
 
-<img src="images/image10.png" />
+<img src="images/image10.PNG" />
 
 image 11
 
-<img src="images/image11.png"/>
+<img src="images/image11.PNG"/>
 
 
 ## FP.6 : Performance Evaluation 2
