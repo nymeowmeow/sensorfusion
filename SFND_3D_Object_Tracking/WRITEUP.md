@@ -231,11 +231,13 @@ image 11
 <img src="images/image11.PNG"/>
 
 
+The same behavior is also observed for frame 3 and 4.
+
 ## FP.6 : Performance Evaluation 2
 
 TTC for camera and lidar for various detector/descriptor combination is as follows for the best detector/descriptor found in 2D exercise. For image 5 it can be seem for FAST/BRIEF and FAST/ORB the TTC calculaed from camera is INF. While FAST/BRISK has a very large value as compared to frame 4 or 6. This is due to the way we calculates TTC = -dt/(1-meddistratio), when the distance ratio is very close to 1, i.e the previous distance and current distance are almost same, the calculated TTC will be very sensitive to small error. In this case there will be large variation in calculated TTC.
 
-So in this sense, FAST/BRISK seems to be performing better in this case, and the value is also more consistent w lidar TTC.
+So in this sense, FAST/BRISK seems to be performing better in this case, and the value is also more consistent w lidar TTC. The comparison of the TTC time for camera under various detector/descriptor combination in as shown below and also in the Refer: [performance.csv](./performance.csv)
 
 1. FAST/BRIEF
 
