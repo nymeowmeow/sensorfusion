@@ -247,10 +247,6 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
     for (auto& pt : lidarPointsCurr)
         if (fabs(pt.y) <= lanewidth/2.0)
 	    curr_lidar_points.push_back(pt.x);
-    //double prev_mean = accumulate(prev_lidar_points.begin(), 
-		           //prev_lidar_points.end(), 0.0)/prev_lidar_points.size();
-    //double curr_mean = accumulate(curr_lidar_points.begin(), 
-		           //curr_lidar_points.end(), 0.0)/curr_lidar_points.size();
    //use median to minimize the effect of outliers
    double prev_pos = median(prev_lidar_points);
    double curr_pos = median(curr_lidar_points);
@@ -260,6 +256,7 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
 
 void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bbBestMatches, DataFrame &prevFrame, DataFrame &currFrame)
 {
+    //map of the frequency count for prev box id and curr box id combination
     std::map<int, map<int, int>> counts;
     for (const auto& match : matches)
     {

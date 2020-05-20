@@ -51,6 +51,7 @@ int main(int argc, const char *argv[])
     // data location
     string dataPath = "../";
 
+    bool bwaitkey = true; //to be set to true
     // camera
     string imgBasePath = dataPath + "images/";
     string imgPrefix = "KITTI/2011_09_26/image_02/data/000000"; // left camera, color
@@ -96,10 +97,14 @@ int main(int argc, const char *argv[])
     boost::circular_buffer<DataFrame> dataBuffer(dataBufferSize); // list of data frames which are held in memory at the same time
     bool bVis = false;            // visualize results
 
-    /* MAIN LOOP OVER ALL IMAGES */
+    //vector to store ttc result for camera/lidar
+    vector<pair<int, double>> ttc_camera_list;
+    vector<pair<int, double>> ttc_lidar_list;
 
+    /* MAIN LOOP OVER ALL IMAGES */
     for (size_t imgIndex = 0; imgIndex <= imgEndIndex - imgStartIndex; imgIndex+=imgStepWidth)
     {
+        cout << "processing image index " << imgIndex << endl;
         /* LOAD IMAGE INTO BUFFER */
         // assemble filenames for current index
         ostringstream imgNumber;
@@ -114,7 +119,7 @@ int main(int argc, const char *argv[])
         frame.cameraImg = img;
         dataBuffer.push_back(frame);
 
-        cout << "#1 : LOAD IMAGE INTO BUFFER done" << endl;
+        cout << "#1 : LOAD IMAGE INTO BUFFER done: " << imgFullFilename << endl;
 
 
         /* DETECT & CLASSIFY OBJECTS */
@@ -153,8 +158,8 @@ int main(int argc, const char *argv[])
         bVis = true;
         if(bVis)
         {
-            //show3DObjects((dataBuffer.end()-1)->boundingBoxes, cv::Size(4.0, 20.0), cv::Size(2000, 2000), true);
-	    show3DObjects((dataBuffer.end()-1)->boundingBoxes, cv::Size(4.0, 20.0), cv::Size(1000, 1000), true);
+            show3DObjects((dataBuffer.end()-1)->boundingBoxes, cv::Size(4.0, 20.0), cv::Size(2000, 2000), bwaitkey);
+	    //show3DObjects((dataBuffer.end()-1)->boundingBoxes, cv::Size(4.0, 20.0), cv::Size(1500, 1500), bwaitkey);
         }
         bVis = false;
 
@@ -244,7 +249,6 @@ int main(int argc, const char *argv[])
 
             cout << "#8 : TRACK 3D OBJECT BOUNDING BOXES done" << endl;
 
-
             /* COMPUTE TTC ON OBJECT IN FRONT */
 
             // loop over all BB match pairs
@@ -275,6 +279,7 @@ int main(int argc, const char *argv[])
                     //// TASK FP.2 -> compute time-to-collision based on Lidar data (implement -> computeTTCLidar)
                     double ttcLidar; 
                     computeTTCLidar(prevBB->lidarPoints, currBB->lidarPoints, sensorFrameRate, ttcLidar);
+                    ttc_lidar_list.push_back(make_pair(imgIndex, ttcLidar));
                     //// EOF STUDENT ASSIGNMENT
 
                     //// STUDENT ASSIGNMENT
@@ -283,6 +288,7 @@ int main(int argc, const char *argv[])
                     double ttcCamera;
                     clusterKptMatchesWithROI(*currBB, (dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->kptMatches);                    
                     computeTTCCamera((dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints, currBB->kptMatches, sensorFrameRate, ttcCamera);
+                    ttc_camera_list.push_back(make_pair(imgIndex, ttcCamera));
                     //// EOF STUDENT ASSIGNMENT
 
                     bVis = true;
@@ -311,5 +317,11 @@ int main(int argc, const char *argv[])
 
     } // eof loop over all images
 
+    //show lidar and camera ttc
+    cout << "| image | TTC/Lidar | TTC/Camera |" << endl;
+    for (int i = 0; i < ttc_camera_list.size(); ++i)
+    {
+        cout << "| " << i << " | " << ttc_lidar_list[i].second << " | " << ttc_camera_list[i].second << "|" << endl;
+    }
     return 0;
 }
